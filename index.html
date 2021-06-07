@@ -8,8 +8,114 @@
 		<link rel="stylesheet" href="https://raw.githubusercontent.com/hlin8399/Test/main/styles.css">
 		<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
 		<script src="https://spotible-web-engine-static.s3.amazonaws.com/js/turn-4.1.0.min.js"></script>		
-		<script src="https://raw.githubusercontent.com/hlin8399/Test/main/script.js"></script>
-		<script src="https://raw.githubusercontent.com/hlin8399/Test/main/reactive_scroll.js"></script>
+		<script>
+			var resizeTimer;
+			var flipbookHTML;
+			var currentPage = 1;
+			var firstLoad = true;
+			var iOS_1 = !!navigator.platform && /iPad|iPhone|iPod/.test(navigator.platform);
+			var iOS_2 = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+
+			window.addEventListener('resize', function() {
+				clearTimeout(resizeTimer);
+				resizeTimer = setTimeout(function() {
+					console.log('Resize Detected');
+					// Done Resizing
+					if(!firstLoad && !iOS_1 && !iOS_2){ //IPhone triggers the 'resize' listener when the user attempts to turn the page, causing the flipbook to rebuild itself, preventing the user from flipping through the pages
+						initFB();
+					}
+				}, 250);
+			});
+
+			function saveHTML(){
+				flipbookHTML = document.getElementById('flipbook').innerHTML;
+			}
+
+			function initFB(){
+				console.log('INIT');
+				if(!firstLoad && !iOS_1 && !iOS_2){
+					console.log('DESTROY');
+					$('#flipbook').turn('destroy');
+				}
+				document.getElementById('flipbook').innerHTML = flipbookHTML;
+				var width = document.getElementById('fbSize').width;
+				var height = document.getElementById('fbSize').height;
+				console.log('width = ' + width);
+				console.log('height = ' + height);
+				if(width == 0 || height == 0){
+					setTimeout(function(){
+						initFB();
+					}, 500);
+				}
+				else{
+					$('#flipbook').turn({
+						width: width,
+						height: height,
+						display: 'single'
+					});
+					if(firstLoad){
+						firstLoad = false;
+						setTimeout(function(){
+							$('#flipbook').turn('peel', 'br');
+						}, 500);
+						setTimeout(function(){
+							$('#flipbook').turn('next');
+						}, 1500);
+					}
+					else{
+						$('#flipbook').turn('page', currentPage);
+					}
+					$('#flipbook').removeClass('hidden');
+					$('#flipbook').bind('turned', function(event, page, pageObject) {
+						currentPage = page;
+						$('#flipbook').turn('peel', 'br');
+					});
+				}
+			}
+		</script>
+		<script>
+			var topWindow = window.top;
+			var scrollPos = 0;
+			var scrollAmount = 0;
+			var scrollValue = 0;
+			var direction = 'forward';
+			var flipTime = true;
+			topWindow.addEventListener('scroll', function(){
+				scrollValue = topWindow.document.documentElement.scrollTop || topWindow.document.body.scrollTop;
+				if(scrollValue < scrollPos){
+					scrollAmount = scrollAmount + (scrollPos - scrollValue);
+				}
+				else{
+					scrollAmount = scrollAmount + (scrollValue - scrollPos);
+				}
+				scrollPos = scrollValue;
+				if(scrollAmount >= spotible.api.getVariable('SCROLL_AMOUNT')){
+					if(direction == 'forward' && flipTime){
+						$('#flipbook').turn('next');
+						flipTime = false;
+						setTimeout(function(){ 
+							flipTime = true;
+						}, 500);
+					}
+					else if(flipTime){
+						$('#flipbook').turn('previous');
+						flipTime = false;
+						setTimeout(function(){ 
+							flipTime = true;
+						}, 500);
+					}
+					scrollAmount = 0;
+				}
+
+				$('#flipbook').bind('first', function(event) {
+					direction = 'forward';
+				});
+
+				$('#flipbook').bind('last', function(event) {
+					direction = 'back';
+				});
+			}, false);
+		</script>
 	</head>
 	<body onload="saveHTML();initFB();">
 		<div id="flipbookContainer">
